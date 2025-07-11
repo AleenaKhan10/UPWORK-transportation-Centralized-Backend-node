@@ -15,7 +15,7 @@ const makeCall = async (req, res) => {
       "/restapi/v1.0/account/~/extension/~/ring-out",
       {
         from: { phoneNumber: "317-559-2104" },
-        to: { phoneNumber: "312-375-1054" },
+        to: { phoneNumber: "(219) 200-2824" },
         playPrompt: false,
       }
     );
