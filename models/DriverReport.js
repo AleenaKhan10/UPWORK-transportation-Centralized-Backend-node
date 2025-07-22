@@ -41,7 +41,7 @@ const DriverReport = sequelize.define(
   },
   {
     tableName: "driver_reports",
-    timestamps: false,
+    timestamps: true,
   }
 );
 
