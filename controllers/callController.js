@@ -214,7 +214,7 @@ const makeVapiCall = async (req, res) => {
     if (!driverId) {
       return res.status(400).json({
         error: "Driver ID is required",
-        status: "validation_error"
+        status: "validation_error",
       });
     }
 
@@ -224,7 +224,7 @@ const makeVapiCall = async (req, res) => {
     if (!driver) {
       return res.status(404).json({
         error: "Driver not found",
-        status: "driver_not_found"
+        status: "driver_not_found",
       });
     }
 
@@ -232,11 +232,13 @@ const makeVapiCall = async (req, res) => {
     if (!driver.phoneNumber) {
       return res.status(400).json({
         error: "Driver phone number is required for VAPI call",
-        status: "missing_phone_number"
+        status: "missing_phone_number",
       });
     }
 
-    console.log(`📞 Initiating VAPI call to driver: ${driver.firstName} ${driver.lastName} (${driverId})`);
+    console.log(
+      `📞 Initiating VAPI call to driver: ${driver.firstName} ${driver.lastName} (${driverId})`
+    );
 
     // Make VAPI API call with driver data
     const vapiResult = await createVapiCall(driver.toJSON());
@@ -248,34 +250,138 @@ const makeVapiCall = async (req, res) => {
       driverId: driver.driverId,
       phoneNumber: driver.phoneNumber,
       driverName: `${driver.firstName} ${driver.lastName}`,
-      status: vapiResult.status
+      status: vapiResult.status,
     });
-
   } catch (error) {
     console.error("❌ Error making VAPI call:", error.message);
-    
+
     // Handle different error types following existing patterns
-    if (error.message.includes('VAPI API Error')) {
+    if (error.message.includes("VAPI API Error")) {
       return res.status(502).json({
         error: error.message,
-        status: "vapi_api_error"
+        status: "vapi_api_error",
       });
-    } else if (error.message.includes('Network error')) {
+    } else if (error.message.includes("Network error")) {
       return res.status(503).json({
         error: error.message,
-        status: "network_error"
+        status: "network_error",
       });
-    } else if (error.message.includes('environment variable')) {
+    } else if (error.message.includes("environment variable")) {
       return res.status(500).json({
         error: "VAPI configuration error",
-        status: "configuration_error"
+        status: "configuration_error",
       });
     } else {
       return res.status(500).json({
         error: error.message,
-        status: "internal_error"
+        status: "internal_error",
       });
     }
+  }
+};
+
+//? GET INSIGHTS
+const updateDriverCallInsights = async (req, res) => {
+  try {
+    const {
+      driverId,
+      currentLocation,
+      milesRemaining,
+      eta,
+      onTimeStatus,
+      delayReason,
+      driverMood,
+      preferredCallbackTime,
+      wantsTextInstead,
+      issueReported,
+      recordingUrl,
+    } = req.body;
+
+    console.log(
+      currentLocation,
+      milesRemaining,
+      eta,
+      onTimeStatus,
+      delayReason,
+      driverMood,
+      preferredCallbackTime,
+      wantsTextInstead,
+      issueReported,
+      recordingUrl
+    );
+
+    const testData = {
+      driverId: "007JamedBond",
+      currentLocation: "Los Angles",
+      eta: "12 15 AM",
+      onTimeStatus: "Delayed",
+      delayReason: "Heavy traffic",
+      driverMood: "Happy",
+      preferredCallbackTime: "25/07/2025 12 15 AM",
+      wantsTextInstead: true,
+      recordingUrl: "rocording.url.com",
+    };
+
+    // FIND DRIVER
+    const driverIdReport = await DriverReport.findOne({
+      where: { driverIdPrimary: driverId },
+    });
+
+    if (!driverIdReport)
+      return res
+        .status(400)
+        .json({ success: false, message: "No Report Found" });
+
+    // UPDATE REPORTS ==> futute
+
+    const [updatedRows] = await DriverReport.update(
+      {
+        currentLocation,
+        milesRemaining,
+        eta,
+        onTimeStatus,
+        delayReason,
+        driverMood,
+        preferredCallbackTime,
+        wantsTextInstead,
+        issueReported,
+        recordingUrl,
+      },
+      {
+        where: { driverId },
+      }
+    );
+
+    if (updatedRows === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Driver report not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Driver report updated successfully.",
+      data: {
+        driverId,
+        currentLocation,
+        milesRemaining,
+        eta,
+        onTimeStatus,
+        delayReason,
+        driverMood,
+        preferredCallbackTime,
+        wantsTextInstead,
+        issueReported,
+        recordingUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating driver call insights:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
 
@@ -287,4 +393,5 @@ module.exports = {
   callRecordings,
   makeCallsToMultipleDrivers,
   makeVapiCall,
+  updateDriverCallInsights,
 };
