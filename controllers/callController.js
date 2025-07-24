@@ -4,6 +4,7 @@ const DriverReport = require("../models/DriverReport");
 const { pollRingOutStatus } = require("../utils/poll");
 const { getPlatform } = require("../utils/ringcentral");
 const { ensureValidToken } = require("../utils/tokenManager");
+const { createVapiCall } = require("../utils/vapiClient");
 
 /**
  * Initiates an outbound call using RingOut API
@@ -201,6 +202,83 @@ const callRecordings = async (req, res) => {
   }
 };
 
+/**
+ * Initiates a VAPI AI-powered call to a specific driver
+ * @param {Object} req - Express request object with driverId parameter
+ * @param {Object} res - Express response object
+ */
+const makeVapiCall = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    if (!driverId) {
+      return res.status(400).json({
+        error: "Driver ID is required",
+        status: "validation_error"
+      });
+    }
+
+    // Retrieve driver information using existing Sequelize pattern
+    const driver = await Driver.findByPk(driverId);
+
+    if (!driver) {
+      return res.status(404).json({
+        error: "Driver not found",
+        status: "driver_not_found"
+      });
+    }
+
+    // Validate driver has phone number
+    if (!driver.phoneNumber) {
+      return res.status(400).json({
+        error: "Driver phone number is required for VAPI call",
+        status: "missing_phone_number"
+      });
+    }
+
+    console.log(`📞 Initiating VAPI call to driver: ${driver.firstName} ${driver.lastName} (${driverId})`);
+
+    // Make VAPI API call with driver data
+    const vapiResult = await createVapiCall(driver.toJSON());
+
+    // Return success response following existing patterns
+    res.json({
+      success: true,
+      callId: vapiResult.callId,
+      driverId: driver.driverId,
+      phoneNumber: driver.phoneNumber,
+      driverName: `${driver.firstName} ${driver.lastName}`,
+      status: vapiResult.status
+    });
+
+  } catch (error) {
+    console.error("❌ Error making VAPI call:", error.message);
+    
+    // Handle different error types following existing patterns
+    if (error.message.includes('VAPI API Error')) {
+      return res.status(502).json({
+        error: error.message,
+        status: "vapi_api_error"
+      });
+    } else if (error.message.includes('Network error')) {
+      return res.status(503).json({
+        error: error.message,
+        status: "network_error"
+      });
+    } else if (error.message.includes('environment variable')) {
+      return res.status(500).json({
+        error: "VAPI configuration error",
+        status: "configuration_error"
+      });
+    } else {
+      return res.status(500).json({
+        error: error.message,
+        status: "internal_error"
+      });
+    }
+  }
+};
+
 module.exports = {
   makeCall,
   transferCall,
@@ -208,4 +286,5 @@ module.exports = {
   listRecentCalls,
   callRecordings,
   makeCallsToMultipleDrivers,
+  makeVapiCall,
 };
