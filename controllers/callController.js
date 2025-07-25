@@ -5,6 +5,7 @@ const { pollRingOutStatus } = require("../utils/poll");
 const { getPlatform } = require("../utils/ringcentral");
 const { ensureValidToken } = require("../utils/tokenManager");
 const { createVapiCall } = require("../utils/vapiClient");
+const { Op } = require("sequelize");
 
 /**
  * Initiates an outbound call using RingOut API
@@ -279,6 +280,123 @@ const makeVapiCall = async (req, res) => {
   }
 };
 
+/**
+ * Initiates VAPI AI-powered calls to multiple drivers simultaneously
+ * @param {Object} req - Express request object with driverIds array in body
+ * @param {Object} res - Express response object
+ */
+const makeVapiCallsToMultipleDrivers = async (req, res) => {
+  try {
+    const { driverIds } = req.body;
+    
+    // Validate input
+    if (!Array.isArray(driverIds) || driverIds.length === 0) {
+      return res.status(400).json({
+        error: 'driverIds must be a non-empty array',
+        status: 'validation_error'
+      });
+    }
+
+    console.log(`📞 Processing batch VAPI calls for ${driverIds.length} driver(s): ${driverIds.join(', ')}`);
+
+    // Bulk lookup drivers using existing Sequelize pattern
+    const drivers = await Driver.findAll({
+      where: {
+        driverId: {
+          [Op.in]: driverIds
+        }
+      }
+    });
+
+    // Filter out invalid driver IDs and log warnings
+    const validDrivers = drivers.filter(driver => driver);
+    const foundDriverIds = validDrivers.map(d => d.driverId);
+    const invalidDriverIds = driverIds.filter(id => !foundDriverIds.includes(id));
+    
+    if (invalidDriverIds.length > 0) {
+      console.warn(`⚠️ Invalid driver IDs: ${invalidDriverIds.join(', ')}`);
+    }
+
+    // Check if any valid drivers were found
+    if (validDrivers.length === 0) {
+      return res.status(400).json({
+        error: 'No valid drivers found',
+        status: 'no_valid_drivers',
+        invalidDriverIds
+      });
+    }
+
+    // Validate all valid drivers have phone numbers
+    const driversWithoutPhone = validDrivers.filter(driver => !driver.phoneNumber);
+    if (driversWithoutPhone.length > 0) {
+      const driversWithoutPhoneIds = driversWithoutPhone.map(d => d.driverId);
+      console.warn(`⚠️ Drivers without phone numbers: ${driversWithoutPhoneIds.join(', ')}`);
+      
+      // Filter out drivers without phone numbers
+      const driversWithPhone = validDrivers.filter(driver => driver.phoneNumber);
+      
+      if (driversWithPhone.length === 0) {
+        return res.status(400).json({
+          error: 'No drivers with valid phone numbers found',
+          status: 'no_valid_phone_numbers',
+          invalidDriverIds: [...invalidDriverIds, ...driversWithoutPhoneIds]
+        });
+      }
+      
+      // Update arrays to reflect phone number filtering
+      validDrivers.length = 0;
+      validDrivers.push(...driversWithPhone);
+      invalidDriverIds.push(...driversWithoutPhoneIds);
+    }
+
+    console.log(`✅ Found ${validDrivers.length} valid driver(s) for VAPI campaign`);
+    validDrivers.forEach(driver => {
+      console.log(`   • ${driver.firstName} ${driver.lastName} (${driver.driverId}) - ${driver.phoneNumber}`);
+    });
+
+    // Use enhanced VAPI client with multiple drivers (single campaign)
+    const vapiResponse = await createVapiCall(validDrivers.map(driver => driver.toJSON()));
+
+    // Return comprehensive response
+    res.json({
+      success: true,
+      campaignId: vapiResponse.campaignId,
+      totalDrivers: driverIds.length,
+      validDrivers: validDrivers.length,
+      invalidDrivers: invalidDriverIds.length,
+      invalidDriverIds,
+      status: vapiResponse.status,
+      customers: vapiResponse.customers
+    });
+
+  } catch (error) {
+    console.error('❌ Error in batch VAPI calls:', error.message);
+    
+    // Handle different error types following existing patterns
+    if (error.message.includes('VAPI API Error')) {
+      return res.status(502).json({
+        error: error.message,
+        status: "vapi_api_error"
+      });
+    } else if (error.message.includes('Network error')) {
+      return res.status(503).json({
+        error: error.message,
+        status: "network_error"
+      });
+    } else if (error.message.includes('environment variable')) {
+      return res.status(500).json({
+        error: "VAPI configuration error",
+        status: "configuration_error"
+      });
+    } else {
+      return res.status(500).json({
+        error: error.message,
+        status: "batch_vapi_error"
+      });
+    }
+  }
+};
+
 module.exports = {
   makeCall,
   transferCall,
@@ -287,4 +405,5 @@ module.exports = {
   callRecordings,
   makeCallsToMultipleDrivers,
   makeVapiCall,
+  makeVapiCallsToMultipleDrivers,
 };
