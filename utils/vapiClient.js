@@ -1,8 +1,8 @@
 // utils/vapiClient.js
-const axios = require('axios');
-require('dotenv').config();
+const axios = require("axios");
+require("dotenv").config();
 
-const VAPI_BASE_URL = 'https://api.vapi.ai';
+const VAPI_BASE_URL = "https://api.vapi.ai";
 
 /**
  * Create a VAPI call with driver information
@@ -11,15 +11,17 @@ const VAPI_BASE_URL = 'https://api.vapi.ai';
  */
 const createVapiCall = async (driverData) => {
   try {
+    console.log("VAPI AGENT SINGLE");
+
     // Validate required environment variables
     if (!process.env.VAPI_API_KEY) {
-      throw new Error('VAPI_API_KEY environment variable is required');
+      throw new Error("VAPI_API_KEY environment variable is required");
     }
     if (!process.env.VAPI_ASSISTANT_ID) {
-      throw new Error('VAPI_ASSISTANT_ID environment variable is required');
+      throw new Error("VAPI_ASSISTANT_ID environment variable is required");
     }
     if (!process.env.VAPI_PHONENUMBER_ID) {
-      throw new Error('VAPI_PHONENUMBER_ID environment variable is required');
+      throw new Error("VAPI_PHONENUMBER_ID environment variable is required");
     }
 
     // Ensure driverData is an array for consistent processing
@@ -27,28 +29,34 @@ const createVapiCall = async (driverData) => {
 
     // Validate that we have at least one driver
     if (driversArray.length === 0) {
-      throw new Error('At least one driver must be provided');
+      throw new Error("At least one driver must be provided");
     }
 
     // Map driver data to VAPI campaign format with multiple customers
     const customers = driversArray.map((driver) => {
       // Validate required driver fields
       if (!driver.phoneNumber || !driver.firstName || !driver.lastName) {
-        throw new Error('Driver must have phoneNumber, firstName, and lastName');
+        throw new Error(
+          "Driver must have phoneNumber, firstName, and lastName"
+        );
       }
+      // driver.phoneNumber
 
       return {
-        number: driver.phoneNumber,
+        number: "+12192002824",
         name: `${driver.firstName} ${driver.lastName}`,
         assistantOverrides: {
           variableValues: {
             driverFirstName: driver.firstName,
-            driverId: driver.id || driver.driverId || `driver_${Date.now()}_${Math.random()}`,
-            currentLocation: driver.currentLocation || 'Los Angeles, CA',
-            milesRemaining: driver.milesRemaining || '100',
-            deliveryType: driver.deliveryType || 'pickup'
-          }
-        }
+            driverId:
+              driver.id ||
+              driver.driverId ||
+              `driver_${Date.now()}_${Math.random()}`,
+            currentLocation: driver.currentLocation || "Los Angeles, CA",
+            milesRemaining: driver.milesRemaining || "100",
+            deliveryType: driver.deliveryType || "pickup",
+          },
+        },
       };
     });
 
@@ -57,47 +65,58 @@ const createVapiCall = async (driverData) => {
       name: "Daily Driver Check-in",
       phoneNumberId: process.env.VAPI_PHONENUMBER_ID,
       customers: customers,
-      assistantId: process.env.VAPI_ASSISTANT_ID
+      assistantId: process.env.VAPI_ASSISTANT_ID,
     };
 
-    console.log(`📞 Initiating VAPI campaign call to ${customers.length} driver(s)`);
+    console.log(
+      `📞 Initiating VAPI campaign call to ${customers.length} driver(s)`
+    );
     customers.forEach((customer, index) => {
       console.log(`   ${index + 1}. ${customer.name} (${customer.number})`);
     });
 
     // Make API call to VAPI campaign endpoint
-    const response = await axios.post(`${VAPI_BASE_URL}/campaign`, requestBody, {
-      headers: {
-        'Authorization': `Bearer ${process.env.VAPI_API_KEY}`,
-        'Content-Type': 'application/json'
+    const response = await axios.post(
+      `${VAPI_BASE_URL}/campaign`,
+      requestBody,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.VAPI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
       }
-    });
+    );
 
-    console.log(`✅ VAPI campaign initiated successfully. Campaign ID: ${response.data.id}`);
-    
+    console.log(
+      `✅ VAPI campaign initiated successfully. Campaign ID: ${response.data.id}`
+    );
+
     return {
       success: true,
       campaignId: response.data.id,
       callId: response.data.id, // For backward compatibility
-      status: response.data.status || 'initiated',
+      status: response.data.status || "initiated",
       customerCount: customers.length,
-      customers: customers.map(customer => ({
+      customers: customers.map((customer) => ({
         name: customer.name,
         number: customer.number,
-        driverId: customer.assistantOverrides.variableValues.driverId
-      }))
+        driverId: customer.assistantOverrides.variableValues.driverId,
+      })),
     };
-
   } catch (error) {
-    console.error('❌ Error creating VAPI call:', error.message);
-    
+    console.error("❌ Error creating VAPI call:", error.message);
+
     // Handle different error types
     if (error.response) {
       // API responded with error status
-      throw new Error(`VAPI API Error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`);
+      throw new Error(
+        `VAPI API Error: ${error.response.status} - ${
+          error.response.data?.message || error.response.statusText
+        }`
+      );
     } else if (error.request) {
       // Network error
-      throw new Error('Network error: Unable to reach VAPI API');
+      throw new Error("Network error: Unable to reach VAPI API");
     } else {
       // Other errors (validation, etc.)
       throw error;
@@ -114,9 +133,9 @@ const getCallStatus = async (callId) => {
   try {
     const response = await axios.get(`${VAPI_BASE_URL}/call/${callId}`, {
       headers: {
-        'Authorization': `Bearer ${process.env.VAPI_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${process.env.VAPI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
     });
 
     return response.data;
@@ -128,5 +147,5 @@ const getCallStatus = async (callId) => {
 
 module.exports = {
   createVapiCall,
-  getCallStatus
-}; 
+  getCallStatus,
+};
