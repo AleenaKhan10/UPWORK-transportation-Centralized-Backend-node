@@ -6,7 +6,7 @@ const VAPI_BASE_URL = 'https://api.vapi.ai';
 
 /**
  * Create a VAPI call with driver information
- * @param {Object} driverData - Driver information to pass to VAPI
+ * @param {Object|Array} driverData - Single driver object or array of driver objects
  * @returns {Promise<Object>} - VAPI call response
  */
 const createVapiCall = async (driverData) => {
@@ -22,29 +22,48 @@ const createVapiCall = async (driverData) => {
       throw new Error('VAPI_PHONENUMBER_ID environment variable is required');
     }
 
-    // Map driver data to VAPI campaign format with single customer
-    const customer = {
-      number: driverData.phoneNumber,
-      name: `${driverData.firstName} ${driverData.lastName}`,
-      assistantOverrides: {
-        variableValues: {
-          driverFirstName: driverData.firstName,
-          currentLocation: 'Los Angeles, CA',
-          milesRemaining: '100',
-          deliveryType: 'pickup'
-        }
-      }
-    };
+    // Ensure driverData is an array for consistent processing
+    const driversArray = Array.isArray(driverData) ? driverData : [driverData];
 
-    // Prepare VAPI campaign request with single customer
+    // Validate that we have at least one driver
+    if (driversArray.length === 0) {
+      throw new Error('At least one driver must be provided');
+    }
+
+    // Map driver data to VAPI campaign format with multiple customers
+    const customers = driversArray.map((driver) => {
+      // Validate required driver fields
+      if (!driver.phoneNumber || !driver.firstName || !driver.lastName) {
+        throw new Error('Driver must have phoneNumber, firstName, and lastName');
+      }
+
+      return {
+        number: driver.phoneNumber,
+        name: `${driver.firstName} ${driver.lastName}`,
+        assistantOverrides: {
+          variableValues: {
+            driverFirstName: driver.firstName,
+            driverId: driver.id || driver.driverId || `driver_${Date.now()}_${Math.random()}`,
+            currentLocation: driver.currentLocation || 'Los Angeles, CA',
+            milesRemaining: driver.milesRemaining || '100',
+            deliveryType: driver.deliveryType || 'pickup'
+          }
+        }
+      };
+    });
+
+    // Prepare VAPI campaign request with multiple customers
     const requestBody = {
       name: "Daily Driver Check-in",
       phoneNumberId: process.env.VAPI_PHONENUMBER_ID,
-      customers: [customer], // Array with single customer
+      customers: customers,
       assistantId: process.env.VAPI_ASSISTANT_ID
     };
 
-    console.log(`📞 Initiating VAPI campaign call to ${customer.name} (${customer.number})`);
+    console.log(`📞 Initiating VAPI campaign call to ${customers.length} driver(s)`);
+    customers.forEach((customer, index) => {
+      console.log(`   ${index + 1}. ${customer.name} (${customer.number})`);
+    });
 
     // Make API call to VAPI campaign endpoint
     const response = await axios.post(`${VAPI_BASE_URL}/campaign`, requestBody, {
@@ -61,11 +80,12 @@ const createVapiCall = async (driverData) => {
       campaignId: response.data.id,
       callId: response.data.id, // For backward compatibility
       status: response.data.status || 'initiated',
-      customer: {
+      customerCount: customers.length,
+      customers: customers.map(customer => ({
         name: customer.name,
         number: customer.number,
         driverId: customer.assistantOverrides.variableValues.driverId
-      }
+      }))
     };
 
   } catch (error) {

@@ -9,6 +9,7 @@ const {
   callRecordings,
   makeCallsToMultipleDrivers,
   makeVapiCall,
+  makeVapiCallsToMultipleDrivers,
 } = require("../controllers/callController");
 
 router.post("/make-call", makeCall);
@@ -18,5 +19,6 @@ router.get("/active-calls", listActiveCalls);
 router.get("/recent-calls", listRecentCalls);
 router.get("/recordings", callRecordings);
 router.post("/vapi-call/:driverId", makeVapiCall);
+router.post("/vapi-calls/batch", makeVapiCallsToMultipleDrivers);
 
 module.exports = router;
