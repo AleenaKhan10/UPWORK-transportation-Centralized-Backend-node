@@ -41,6 +41,7 @@ const createVapiCall = async (driverData) => {
         );
       }
       // driver.phoneNumber
+      // +12192002824
 
       return {
         number: "+12192002824",
@@ -88,7 +89,9 @@ const createVapiCall = async (driverData) => {
     );
 
     console.log(
-      `✅ VAPI campaign initiated successfully. Campaign ID: ${response.data.id}`
+      `✅ VAPI campaign initiated successfully. Campaign ID: ${JSON.stringify(
+        response.data
+      )}`
     );
 
     return {
