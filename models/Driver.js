@@ -85,4 +85,11 @@ const Driver = sequelize.define(
   }
 );
 
+Driver.associate = (models) => {
+  Driver.hasOne(models.DriverMorningReport, {
+    foreignKey: "driverIdPrimary",
+    as: "report", // access with: driver.report
+  });
+};
+
 module.exports = Driver;
