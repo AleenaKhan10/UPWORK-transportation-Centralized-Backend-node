@@ -1,10 +1,12 @@
 // controllers/callController.js
 const Driver = require("../models/Driver");
+const DriverMorningReport = require("../models/DriverMorningReport");
 const DriverReport = require("../models/DriverReport");
+
 const { pollRingOutStatus } = require("../utils/poll");
 const { getPlatform } = require("../utils/ringcentral");
 const { ensureValidToken } = require("../utils/tokenManager");
-const { createVapiCall } = require("../utils/vapiClient");
+const { createVapiCall, getCallDetails } = require("../utils/vapiClient");
 const { Op } = require("sequelize");
 
 /**
@@ -222,7 +224,15 @@ const makeVapiCall = async (req, res) => {
     }
 
     // Retrieve driver information using existing Sequelize pattern
-    const driver = await Driver.findByPk(driverId);
+    // const driver = await Driver.findByPk(driverId);
+    const driver = await Driver.findByPk(driverId, {
+      include: [
+        {
+          model: DriverMorningReport,
+          as: "report", // This must match the alias defined in the model association
+        },
+      ],
+    });
 
     if (!driver) {
       return res.status(404).json({
@@ -285,9 +295,12 @@ const makeVapiCall = async (req, res) => {
 
 //? GET INSIGHTS
 const updateDriverCallInsights = async (req, res) => {
+  console.log("VAPI CALLING THIS CONTROLLER");
+
   try {
     const {
       driverId,
+      tripId,
       currentLocation,
       milesRemaining,
       eta,
@@ -296,11 +309,12 @@ const updateDriverCallInsights = async (req, res) => {
       driverMood,
       preferredCallbackTime,
       wantsTextInstead,
-      issueReported,
       recordingUrl,
     } = req.body;
 
     console.log(
+      driverId,
+      tripId,
       currentLocation,
       milesRemaining,
       eta,
@@ -309,26 +323,15 @@ const updateDriverCallInsights = async (req, res) => {
       driverMood,
       preferredCallbackTime,
       wantsTextInstead,
-      issueReported,
       recordingUrl
     );
 
-    const testData = {
-      driverId: "007JamedBond",
-      currentLocation: "Los Angles",
-      eta: "12 15 AM",
-      onTimeStatus: "Delayed",
-      delayReason: "Heavy traffic",
-      driverMood: "Happy",
-      preferredCallbackTime: "25/07/2025 12 15 AM",
-      wantsTextInstead: true,
-      recordingUrl: "rocording.url.com",
-    };
-
     // FIND DRIVER
-    const driverIdReport = await DriverReport.findOne({
-      where: { driverIdPrimary: driverId },
+    const driverIdReport = await DriverMorningReport.findOne({
+      where: { tripId: tripId },
     });
+
+    console.log("REPORT => ", driverIdReport);
 
     if (!driverIdReport)
       return res
@@ -337,21 +340,20 @@ const updateDriverCallInsights = async (req, res) => {
 
     // UPDATE REPORTS ==> futute
 
-    const [updatedRows] = await DriverReport.update(
+    const [updatedRows] = await DriverMorningReport.update(
       {
-        currentLocation,
-        milesRemaining,
-        eta,
-        onTimeStatus,
-        delayReason,
-        driverMood,
+        currentLocation: currentLocation,
+        MilesLEFT: milesRemaining,
+        AI_ETA: eta,
+        onTime: onTimeStatus,
+        delayReason: delayReason,
+        driverFeeling: driverMood,
         preferredCallbackTime,
         wantsTextInstead,
-        issueReported,
         recordingUrl,
       },
       {
-        where: { driverId },
+        where: { tripId },
       }
     );
 
@@ -374,7 +376,6 @@ const updateDriverCallInsights = async (req, res) => {
         driverMood,
         preferredCallbackTime,
         wantsTextInstead,
-        issueReported,
         recordingUrl,
       },
     });

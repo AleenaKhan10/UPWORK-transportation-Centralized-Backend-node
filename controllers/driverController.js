@@ -1,9 +1,18 @@
+const { DriverMorningReport, Driver } = require("../models");
+
 // controllers/driverController.js
-const Driver = require("../models/Driver");
+// DriverMorningReport
 
 const getAllDrivers = async (req, res) => {
   try {
-    const drivers = await Driver.findAll();
+    const drivers = await Driver.findAll({
+      include: [
+        {
+          model: DriverMorningReport,
+          as: "report",
+        },
+      ],
+    });
 
     // const formattedDrivers = drivers
     //   .map((driver) => {
@@ -41,14 +50,37 @@ const getAllDrivers = async (req, res) => {
   }
 };
 
+const getAllDriverDetails = async (req, res) => {
+  try {
+    const driverId = req.params.id;
+    const driver = await Driver.findOne({
+      where: { driverId },
+      include: [
+        {
+          model: DriverMorningReport,
+          as: "report", // Ensure this alias matches the Sequelize association
+        },
+      ],
+    });
+
+    res.json({
+      success: true,
+      data: driver,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching drivers:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch drivers" });
+  }
+};
+
 const createDriver = async (req, res) => {
   try {
     const driverData = req.body;
-    
+
     // Generate a unique driver ID
     const timestamp = Date.now();
     const driverId = `DRV_${timestamp}`;
-    
+
     const newDriver = await Driver.create({
       driverId,
       status: driverData.status || "Active",
@@ -90,4 +122,5 @@ const createDriver = async (req, res) => {
 module.exports = {
   getAllDrivers,
   createDriver,
+  getAllDriverDetails,
 };

@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const sequelize = require("./database/dbConnection");
+
 require("./cron/callScheduler");
 
 console.log("🚀 Cron job initialized... waiting for 7AM");
