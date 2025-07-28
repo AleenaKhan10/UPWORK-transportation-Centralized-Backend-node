@@ -43,12 +43,18 @@ const createVapiCall = async (driverData) => {
       // driver.phoneNumber
       // +12192002824
 
+      console.log("Driver Data => ", driver);
+
       return {
         number: "+12192002824",
         name: `${driver.firstName} ${driver.lastName}`,
         assistantOverrides: {
           variableValues: {
             driverFirstName: driver.firstName,
+            tripId:
+              driver?.report.tripId ||
+              driver?.report.trip.id ||
+              `TR_${Date.now()}_${Math.random()}`,
             driverId:
               driver.id ||
               driver.driverId ||
@@ -72,6 +78,7 @@ const createVapiCall = async (driverData) => {
     console.log(
       `📞 Initiating VAPI campaign call to ${customers.length} driver(s)`
     );
+
     customers.forEach((customer, index) => {
       console.log(`   ${index + 1}. ${customer.name} (${customer.number})`);
     });
