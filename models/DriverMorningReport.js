@@ -37,6 +37,7 @@ const DriverMorningReport = sequelize.define(
     leftDelivery: DataTypes.DATE,
     tripStatusText: DataTypes.STRING,
     subStatus: DataTypes.STRING,
+    summary: DataTypes.STRING,
     driverFeeling: DataTypes.STRING,
     driverName: DataTypes.STRING,
     onTime: DataTypes.BOOLEAN,
